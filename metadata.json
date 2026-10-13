@@ -1,0 +1,6 @@
+{
+  "name": "SafeSync - Account Deletion Portal",
+  "description": "Request account deletion and verify identity via email for SafeSync emergency sync accounts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
