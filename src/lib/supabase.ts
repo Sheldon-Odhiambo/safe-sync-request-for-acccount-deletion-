@@ -9,7 +9,7 @@ export const isSupabaseConfigured = Boolean(url && pubKey);
 // account-deletion page, so nothing is left in localStorage on a shared computer.
 export const supabase = createClient(
   url || 'http://localhost:54321',
-  pubKey || 'missing-anon-key',
+  pubKey || 'missing-pub-key',
   {
     auth: {
       persistSession: false,
