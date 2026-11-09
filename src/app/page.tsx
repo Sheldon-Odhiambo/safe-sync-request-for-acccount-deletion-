@@ -70,14 +70,19 @@ export default function PrivacyPolicyPage({
             Under GDPR Article 17 and CCPA, you have the statutory right to request permanent deletion of your SafeSync account, biometric logs, and telemetry history at any time.
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onNavigateToAccountDeletion}
-          className="px-4 py-2.5 text-xs font-bold text-white bg-[#002B66] hover:bg-[#001f4d] rounded-lg transition-colors flex items-center gap-1.5 shrink-0 shadow-2xs whitespace-nowrap"
-        >
-          <span>Go to Account Deletion</span>
-          <ArrowRight className="w-3.5 h-3.5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <a
+            href="/delete"
+            onClick={(e) => {
+              e.preventDefault();
+              onNavigateToAccountDeletion?.();
+            }}
+            className="px-4 py-2.5 text-xs font-bold text-white bg-[#002B66] hover:bg-[#001f4d] rounded-lg transition-colors flex items-center gap-1.5 shrink-0 shadow-2xs whitespace-nowrap cursor-pointer"
+          >
+            <span>Go to Account Deletion</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </a>
+        </div>
       </div>
 
       {/* Main Legal Document Content */}
@@ -240,14 +245,20 @@ export default function PrivacyPolicyPage({
 
       {/* Cross-Link Navigation CTA */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <button
-          type="button"
-          onClick={onNavigateToTerms}
-          className="p-5 text-left bg-white border border-slate-200 hover:border-slate-300 rounded-xl transition-all shadow-2xs group cursor-pointer"
+        <a
+          href="/terms"
+          onClick={(e) => {
+            e.preventDefault();
+            onNavigateToTerms?.();
+          }}
+          className="p-5 text-left bg-white border border-slate-200 hover:border-slate-300 rounded-xl transition-all shadow-2xs group cursor-pointer block"
         >
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">
-            Related Agreement
-          </span>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+              Related Agreement
+            </span>
+            <span className="font-mono text-[10px] text-slate-400">/terms</span>
+          </div>
           <span className="text-base font-bold text-slate-900 group-hover:text-[#002B66] transition-colors flex items-center justify-between">
             <span>Read Terms & Conditions</span>
             <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-[#002B66] group-hover:translate-x-1 transition-all" />
@@ -255,16 +266,22 @@ export default function PrivacyPolicyPage({
           <span className="text-xs text-slate-600 mt-1 block">
             Review life-safety operation rules, hardware warranties, and dispatch protocols.
           </span>
-        </button>
+        </a>
 
-        <button
-          type="button"
-          onClick={onNavigateToAccountDeletion}
-          className="p-5 text-left bg-white border border-slate-200 hover:border-red-300 rounded-xl transition-all shadow-2xs group cursor-pointer"
+        <a
+          href="/delete"
+          onClick={(e) => {
+            e.preventDefault();
+            onNavigateToAccountDeletion?.();
+          }}
+          className="p-5 text-left bg-white border border-slate-200 hover:border-red-300 rounded-xl transition-all shadow-2xs group cursor-pointer block"
         >
-          <span className="text-xs font-bold text-[#DE1123] uppercase tracking-wider block mb-1">
-            Data Erasure Request
-          </span>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-bold text-[#DE1123] uppercase tracking-wider block">
+              Data Erasure Request
+            </span>
+            <span className="font-mono text-[10px] text-red-400">/delete</span>
+          </div>
           <span className="text-base font-bold text-slate-900 group-hover:text-[#DE1123] transition-colors flex items-center justify-between">
             <span>Request Account Deletion</span>
             <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-[#DE1123] group-hover:translate-x-1 transition-all" />
@@ -272,7 +289,7 @@ export default function PrivacyPolicyPage({
           <span className="text-xs text-slate-600 mt-1 block">
             Verify identity via email and initiate SafeSync telemetry deactivation.
           </span>
-        </button>
+        </a>
       </div>
     </div>
   );

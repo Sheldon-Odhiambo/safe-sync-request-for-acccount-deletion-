@@ -1,8 +1,7 @@
 import React from 'react';
 import { PhoneCall } from 'lucide-react';
 import { SafeSyncLogo } from './SafeSyncLogo';
-
-export type AppRoute = 'privacy-policy' | 'terms-and-conditions' | 'account-deletion';
+import { AppRoute, ROUTES } from '../routes';
 
 interface HeaderProps {
   currentRoute: AppRoute;
@@ -14,6 +13,11 @@ export const Header: React.FC<HeaderProps> = ({
   currentRoute,
   onRouteChange,
 }) => {
+  const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, route: AppRoute) => {
+    e.preventDefault();
+    onRouteChange(route);
+  };
+
   return (
     <header className="border-b border-slate-200 bg-white sticky top-0 z-30 shadow-xs">
       {/* Top Banner for critical 24/7 hotline notice */}
@@ -40,29 +44,33 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Main Top Bar: Clean Brand Zone and 3 Navigation Links */}
+      {/* Main Top Bar: Clean Brand Zone and 3 Canonical Route Links */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between gap-6 sm:gap-8">
-        {/* Zone 1: Brand Wordmark (clicking goes to root page: Privacy Policy) */}
+        {/* Zone 1: Brand Wordmark (points to root https://accounts.safesync.co.ke/) */}
         <div className="flex items-center gap-3 shrink-0">
-          <button
-            type="button"
-            onClick={() => onRouteChange('privacy-policy')}
+          <a
+            href={ROUTES['privacy-policy'].path}
+            onClick={(e) => handleLinkClick(e, 'privacy-policy')}
             className="flex items-center text-left focus:outline-none cursor-pointer"
-            aria-label="SafeSync Home"
+            aria-label="SafeSync Home (accounts.safesync.co.ke)"
           >
             <SafeSyncLogo size="sm" variant="horizontal" showTagline={false} />
-          </button>
+          </a>
           <div className="h-5 w-px bg-slate-200 hidden sm:block"></div>
-          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:block">
-            Compliance & Portal
+          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:block font-mono">
+            accounts.safesync.co.ke
           </span>
         </div>
 
-        {/* Zone 2: Navigation Links — STRICTLY: Privacy Policy, Terms & Conditions, Account Deletion */}
+        {/* Zone 2: Navigation Links with Exact URLs:
+            1. /        (https://accounts.safesync.co.ke/)
+            2. /terms   (https://accounts.safesync.co.ke/terms)
+            3. /delete  (https://accounts.safesync.co.ke/delete)
+        */}
         <nav className="flex items-center gap-1.5 sm:gap-4 text-xs sm:text-sm font-medium">
-          <button
-            type="button"
-            onClick={() => onRouteChange('privacy-policy')}
+          <a
+            href={ROUTES['privacy-policy'].path}
+            onClick={(e) => handleLinkClick(e, 'privacy-policy')}
             className={`px-3 py-1.5 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
               currentRoute === 'privacy-policy'
                 ? 'text-[#002B66] font-bold bg-slate-100/90 shadow-2xs'
@@ -70,11 +78,11 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             Privacy Policy
-          </button>
+          </a>
 
-          <button
-            type="button"
-            onClick={() => onRouteChange('terms-and-conditions')}
+          <a
+            href={ROUTES['terms-and-conditions'].path}
+            onClick={(e) => handleLinkClick(e, 'terms-and-conditions')}
             className={`px-3 py-1.5 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
               currentRoute === 'terms-and-conditions'
                 ? 'text-[#002B66] font-bold bg-slate-100/90 shadow-2xs'
@@ -82,11 +90,11 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             Terms & Conditions
-          </button>
+          </a>
 
-          <button
-            type="button"
-            onClick={() => onRouteChange('account-deletion')}
+          <a
+            href={ROUTES['account-deletion'].path}
+            onClick={(e) => handleLinkClick(e, 'account-deletion')}
             className={`px-3 py-1.5 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
               currentRoute === 'account-deletion'
                 ? 'text-[#DE1123] font-bold bg-red-50 shadow-2xs ring-1 ring-red-200'
@@ -94,7 +102,7 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             Account Deletion
-          </button>
+          </a>
         </nav>
       </div>
     </header>
