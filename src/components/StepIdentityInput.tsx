@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, ArrowRight, Download, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { Mail, ArrowRight, Download, CheckCircle2, AlertCircle } from 'lucide-react';
 import { SafetyImpactCard } from './SafetyImpactCard';
 
 interface StepIdentityInputProps {
@@ -11,8 +11,6 @@ interface StepIdentityInputProps {
   setNotes: (notes: string) => void;
   acknowledged: boolean;
   setAcknowledged: (acknowledged: boolean) => void;
-  isSending: boolean;
-  sendError: string | null;
   onProceed: () => void;
   onOpenExport: () => void;
 }
@@ -37,8 +35,6 @@ export const StepIdentityInput: React.FC<StepIdentityInputProps> = ({
   setNotes,
   acknowledged,
   setAcknowledged,
-  isSending,
-  sendError,
   onProceed,
   onOpenExport,
 }) => {
@@ -49,8 +45,7 @@ export const StepIdentityInput: React.FC<StepIdentityInputProps> = ({
   };
 
   const emailValid = isValidEmail(email);
-  const canProceed =
-    emailValid && reason !== '' && reason !== DELETION_REASONS[0] && acknowledged && !isSending;
+  const canProceed = emailValid && reason !== '' && reason !== DELETION_REASONS[0] && acknowledged;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,7 +68,7 @@ export const StepIdentityInput: React.FC<StepIdentityInputProps> = ({
           SafeSync Account & Telemetry Deletion
         </h2>
         <p className="text-slate-600 text-sm mt-1.5 leading-relaxed">
-          Please provide the registered email address associated with your SafeSync account. A one-time 6-digit verification code will be sent to that address to confirm you own the account.
+          Please provide the registered email address associated with your SafeSync account. A secure one-time verification link and 6-digit confirmation code will be dispatched to verify your identity.
         </p>
       </div>
 
@@ -97,18 +92,17 @@ export const StepIdentityInput: React.FC<StepIdentityInputProps> = ({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               onBlur={() => setTouched(true)}
-              placeholder="you@example.com"
-              autoComplete="email"
+              placeholder="e.g. user@safesync-alert.org or oumashelly004@gmail.com"
               required
               className={`block w-full pl-10 pr-10 py-3 text-sm text-slate-900 placeholder:text-slate-400 bg-white border rounded-lg transition-colors focus:outline-none focus:ring-2 ${
-                (touched && !emailValid) || sendError
+                touched && !emailValid
                   ? 'border-red-400 focus:border-red-500 focus:ring-red-100'
                   : emailValid
                   ? 'border-emerald-300 focus:border-[#002B66] focus:ring-[#002B66]/10'
                   : 'border-slate-300 focus:border-[#002B66] focus:ring-[#002B66]/10'
               }`}
             />
-            {emailValid && !sendError && (
+            {emailValid && (
               <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-emerald-600">
                 <CheckCircle2 className="h-4 w-4" />
               </div>
@@ -120,14 +114,8 @@ export const StepIdentityInput: React.FC<StepIdentityInputProps> = ({
               Please enter a valid email address where you receive SafeSync alerts.
             </p>
           )}
-          {sendError && (
-            <p role="alert" className="text-xs text-red-600 flex items-center gap-1 mt-1 font-medium">
-              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-              {sendError}
-            </p>
-          )}
           <p className="text-xs text-slate-500">
-            The verification code will be sent to this mailbox when you continue.
+            Identity verification code will be sent immediately to this mailbox.
           </p>
         </div>
 
@@ -158,7 +146,6 @@ export const StepIdentityInput: React.FC<StepIdentityInputProps> = ({
           <textarea
             id="deletion-notes"
             rows={2}
-            maxLength={300}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Let our safety team know if you are unlinking specific wearable bands, vehicle sensors, or medical monitors..."
@@ -211,17 +198,8 @@ export const StepIdentityInput: React.FC<StepIdentityInputProps> = ({
                 : 'bg-slate-200 text-slate-400 cursor-not-allowed'
             }`}
           >
-            {isSending ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Sending code...</span>
-              </>
-            ) : (
-              <>
-                <span>Send Verification Code</span>
-                <ArrowRight className="w-4 h-4" />
-              </>
-            )}
+            <span>Proceed to Email Verification</span>
+            <ArrowRight className="w-4 h-4" />
           </button>
         </div>
       </form>

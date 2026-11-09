@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, ShieldAlert, Radio, HeartPulse, Smartphone } from 'lucide-react';
+import { AlertTriangle, ShieldAlert, HeartPulse, Smartphone } from 'lucide-react';
 
 export const SafetyImpactCard: React.FC = () => {
   return (
@@ -16,15 +16,7 @@ export const SafetyImpactCard: React.FC = () => {
             SafeSync powers automated emergency detection and responder coordination. Submitting an account deletion request initiates the permanent deactivation of your life-safety services:
           </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
-            <div className="flex items-start gap-2.5 bg-white/80 border border-amber-200/60 rounded-lg p-3">
-              <Radio className="w-4 h-4 text-[#DE1123] shrink-0 mt-0.5" />
-              <div>
-                <span className="text-xs font-semibold text-slate-900 block">SOS Dispatch Deactivated</span>
-                <span className="text-xs text-slate-600">Immediate cessation of automatic 911 / emergency dispatcher routing.</span>
-              </div>
-            </div>
-
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
             <div className="flex items-start gap-2.5 bg-white/80 border border-amber-200/60 rounded-lg p-3">
               <HeartPulse className="w-4 h-4 text-[#DE1123] shrink-0 mt-0.5" />
               <div>

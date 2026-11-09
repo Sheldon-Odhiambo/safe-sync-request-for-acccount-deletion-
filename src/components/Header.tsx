@@ -1,13 +1,19 @@
 import React from 'react';
-import { ShieldCheck, PhoneCall } from 'lucide-react';
+import { PhoneCall } from 'lucide-react';
 import { SafeSyncLogo } from './SafeSyncLogo';
 
+export type AppRoute = 'privacy-policy' | 'terms-and-conditions' | 'account-deletion';
+
 interface HeaderProps {
-  onOpenSupport: () => void;
-  onOpenPrivacy: () => void;
+  currentRoute: AppRoute;
+  onRouteChange: (route: AppRoute) => void;
+  onOpenSupport?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenSupport, onOpenPrivacy }) => {
+export const Header: React.FC<HeaderProps> = ({
+  currentRoute,
+  onRouteChange,
+}) => {
   return (
     <header className="border-b border-slate-200 bg-white sticky top-0 z-30 shadow-xs">
       {/* Top Banner for critical 24/7 hotline notice */}
@@ -34,59 +40,62 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSupport, onOpenPrivacy }) 
         </div>
       </div>
 
-      {/* Main Top Bar following Top Bar Contract: 3 zones separated by gap-8 */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between gap-8">
-        {/* Zone 1: Brand Wordmark */}
+      {/* Main Top Bar: Clean Brand Zone and 3 Navigation Links */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between gap-6 sm:gap-8">
+        {/* Zone 1: Brand Wordmark (clicking goes to root page: Privacy Policy) */}
         <div className="flex items-center gap-3 shrink-0">
-          <SafeSyncLogo size="sm" variant="horizontal" showTagline={false} />
+          <button
+            type="button"
+            onClick={() => onRouteChange('privacy-policy')}
+            className="flex items-center text-left focus:outline-none cursor-pointer"
+            aria-label="SafeSync Home"
+          >
+            <SafeSyncLogo size="sm" variant="horizontal" showTagline={false} />
+          </button>
           <div className="h-5 w-px bg-slate-200 hidden sm:block"></div>
           <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:block">
-            Security & Identity Portal
+            Compliance & Portal
           </span>
         </div>
 
-        {/* Zone 2: Concise Nav Links (single-line, clean text hover) */}
-        <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
-          <a
-            href="#impact-overview"
-            className="hover:text-[#002B66] transition-colors whitespace-nowrap shrink-0"
-          >
-            Safety Impact
-          </a>
+        {/* Zone 2: Navigation Links — STRICTLY: Privacy Policy, Terms & Conditions, Account Deletion */}
+        <nav className="flex items-center gap-1.5 sm:gap-4 text-xs sm:text-sm font-medium">
           <button
-            onClick={onOpenPrivacy}
-            className="hover:text-[#002B66] transition-colors whitespace-nowrap shrink-0 text-left"
+            type="button"
+            onClick={() => onRouteChange('privacy-policy')}
+            className={`px-3 py-1.5 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+              currentRoute === 'privacy-policy'
+                ? 'text-[#002B66] font-bold bg-slate-100/90 shadow-2xs'
+                : 'text-slate-600 hover:text-[#002B66] hover:bg-slate-50'
+            }`}
           >
-            Data Retention & GDPR
+            Privacy Policy
           </button>
-          <a
-            href="#faq-section"
-            className="hover:text-[#002B66] transition-colors whitespace-nowrap shrink-0"
-          >
-            FAQs
-          </a>
+
           <button
-            onClick={onOpenSupport}
-            className="hover:text-[#002B66] transition-colors whitespace-nowrap shrink-0 text-left"
+            type="button"
+            onClick={() => onRouteChange('terms-and-conditions')}
+            className={`px-3 py-1.5 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+              currentRoute === 'terms-and-conditions'
+                ? 'text-[#002B66] font-bold bg-slate-100/90 shadow-2xs'
+                : 'text-slate-600 hover:text-[#002B66] hover:bg-slate-50'
+            }`}
           >
-            Dispatch Support
+            Terms & Conditions
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onRouteChange('account-deletion')}
+            className={`px-3 py-1.5 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+              currentRoute === 'account-deletion'
+                ? 'text-[#DE1123] font-bold bg-red-50 shadow-2xs ring-1 ring-red-200'
+                : 'text-slate-600 hover:text-[#DE1123] hover:bg-slate-50'
+            }`}
+          >
+            Account Deletion
           </button>
         </nav>
-
-        {/* Zone 3: 1 Primary Action */}
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="hidden lg:flex items-center gap-1.5 text-xs text-slate-500 bg-slate-50 px-2.5 py-1.5 rounded-md border border-slate-200">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-            <span>256-Bit Encrypted</span>
-          </div>
-          <button
-            onClick={onOpenSupport}
-            className="px-3.5 py-1.5 text-xs font-semibold text-white bg-[#002B66] rounded-lg hover:bg-[#001f4d] transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5"
-          >
-            <PhoneCall className="w-3.5 h-3.5" />
-            Contact Security Team
-          </button>
-        </div>
       </div>
     </header>
   );
