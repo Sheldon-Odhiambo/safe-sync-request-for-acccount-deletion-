@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import type { AuthError } from '@supabase/supabase-js';
 import { Header } from './components/Header';
 import { SafeSyncLogo } from './components/SafeSyncLogo';
 import { StepIdentityInput } from './components/StepIdentityInput';
@@ -8,18 +9,79 @@ import { DataExportModal } from './components/DataExportModal';
 import { SupportModal } from './components/SupportModal';
 import { PrivacyPolicyModal } from './components/PrivacyPolicyModal';
 import { FaqSection } from './components/FaqSection';
-import { ShieldCheck, Lock, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { ShieldCheck, Lock, AlertTriangle } from 'lucide-react';
+import { supabase, isSupabaseConfigured } from './lib/supabase';
+import {
+  ApiError,
+  isApiConfigured,
+  getDeletionStatus,
+  requestDeletion,
+  cancelDeletion,
+} from './lib/api';
+
+const ACCOUNT_NOT_FOUND = 'No SafeSync account was found for this email address.';
+
+interface DeletionInfo {
+  requestedAt: string | null;
+  scheduledFor: string | null;
+  alreadyPending: boolean;
+}
+
+function mapSendCodeError(err: AuthError): string {
+  const code = (err as { code?: string }).code ?? '';
+  const msg = (err.message ?? '').toLowerCase();
+
+  // With shouldCreateUser:false Supabase refuses to send a code to an email that
+  // has no auth user ("Signups not allowed for otp").
+  if (code === 'otp_disabled' || msg.includes('signups not allowed') || msg.includes('user not found')) {
+    return ACCOUNT_NOT_FOUND;
+  }
+  if (err.status === 429 || code.includes('rate_limit') || msg.includes('rate limit')) {
+    return 'Too many attempts. Please wait a minute before requesting another code.';
+  }
+  return 'We could not send the verification code. Please try again.';
+}
+
+function describeBlockers(blockers: unknown[]): string {
+  const parts = blockers
+    .map((b) => {
+      if (typeof b === 'string') return b;
+      if (b && typeof b === 'object') {
+        const o = b as Record<string, unknown>;
+        const text = o.message ?? o.description ?? o.reason ?? o.type ?? o.code;
+        return typeof text === 'string' ? text : null;
+      }
+      return null;
+    })
+    .filter((s): s is string => Boolean(s));
+
+  return parts.length
+    ? `Your account cannot be deleted yet: ${parts.join('; ')}.`
+    : 'Your account cannot be deleted yet. Please contact SafeSync support.';
+}
 
 export default function App() {
   // Stepper state: 1 = Email & Info, 2 = Email Verification & Confirmation, 3 = Completed/Receipt
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
 
   // Form states
-  const [email, setEmail] = useState<string>('oumashelly004@gmail.com');
+  const [email, setEmail] = useState<string>('');
   const [reason, setReason] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [acknowledged, setAcknowledged] = useState<boolean>(false);
-  const [ticketId, setTicketId] = useState<string>('SS-DEL-8942-X');
+
+  // Backend state
+  const [isSending, setIsSending] = useState<boolean>(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [deletion, setDeletion] = useState<DeletionInfo>({
+    requestedAt: null,
+    scheduledFor: null,
+    alreadyPending: false,
+  });
+
+  // Access token of the user who just proved they own the email. Kept in memory
+  // only; it is what authorises the deletion / cancel calls.
+  const accessTokenRef = useRef<string | null>(null);
 
   // Modal dialog states
   const [isExportOpen, setIsExportOpen] = useState<boolean>(false);
@@ -27,29 +89,139 @@ export default function App() {
   const [isPrivacyOpen, setIsPrivacyOpen] = useState<boolean>(false);
   const [restoredToast, setRestoredToast] = useState<string | null>(null);
 
-  // Step transitions
-  const handleProceedToVerification = () => {
+  const normalizedEmail = email.trim().toLowerCase();
+  const configMissing = !isSupabaseConfigured || !isApiConfigured;
+
+  const composeReason = (): string | null => {
+    const text = `${reason}${notes.trim() ? ` — ${notes.trim()}` : ''}`.trim();
+    return text ? text.slice(0, 500) : null;
+  };
+
+  // Drop the temporary web session (this device only, other sessions such as the
+  // phone app are untouched).
+  const endSession = async () => {
+    accessTokenRef.current = null;
+    try {
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch {
+      /* nothing to clean up */
+    }
+  };
+
+  const sendCode = async (): Promise<string | null> => {
+    if (configMissing) {
+      return 'This portal is not configured yet. Please contact SafeSync support.';
+    }
+    const { error } = await supabase.auth.signInWithOtp({
+      email: normalizedEmail,
+      options: { shouldCreateUser: false },
+    });
+    return error ? mapSendCodeError(error) : null;
+  };
+
+  // Step 1 -> 2: email a one-time code (only if an account exists)
+  const handleProceedToVerification = async () => {
+    setSendError(null);
+    setIsSending(true);
+    const failure = await sendCode();
+    setIsSending(false);
+
+    if (failure) {
+      setSendError(failure);
+      return;
+    }
     setCurrentStep(2);
     window.scrollTo({ top: 120, behavior: 'smooth' });
   };
 
+  // Resend from step 2. Throws so the step can show the message.
+  const handleResendCode = async () => {
+    const failure = await sendCode();
+    if (failure) throw new Error(failure);
+  };
+
   const handleBackToInput = () => {
+    void endSession();
     setCurrentStep(1);
     window.scrollTo({ top: 120, behavior: 'smooth' });
   };
 
-  const handleConfirmDeletion = () => {
-    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-    const newTicket = `SS-DEL-${randomSuffix}-X`;
-    setTicketId(newTicket);
-    setCurrentStep(3);
-    window.scrollTo({ top: 100, behavior: 'smooth' });
+  // Step 2 -> 3: verify the code, then ask the backend to delete THIS account.
+  // Throws an Error with a user-facing message on failure.
+  const handleConfirmDeletion = async (code: string) => {
+    let token = accessTokenRef.current;
+
+    if (!token) {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: normalizedEmail,
+        token: code,
+        type: 'email',
+      });
+      if (error || !data.session) {
+        throw new Error('That code is incorrect or has expired. Check the code or request a new one.');
+      }
+      token = data.session.access_token;
+      accessTokenRef.current = token;
+    }
+
+    try {
+      let status = await getDeletionStatus(token);
+      const alreadyPending = status.status === 'pending';
+
+      if (!alreadyPending) {
+        status = await requestDeletion(token, composeReason());
+      }
+      if (status.status !== 'pending') {
+        throw new Error('We could not confirm your request. Please try again.');
+      }
+
+      setDeletion({
+        requestedAt: status.requested_at,
+        scheduledFor: status.scheduled_for,
+        alreadyPending,
+      });
+      setCurrentStep(3);
+      window.scrollTo({ top: 100, behavior: 'smooth' });
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.code === 'reauth_required' || err.status === 401) {
+          await endSession();
+          throw new Error('Your verification expired. Go back and request a new code.');
+        }
+        if (err.code === 'not_found' || err.status === 404) {
+          await endSession();
+          throw new Error(ACCOUNT_NOT_FOUND);
+        }
+        if (err.code === 'deletion_blocked') {
+          throw new Error(describeBlockers(err.blockers));
+        }
+        throw new Error(err.message);
+      }
+      throw err;
+    }
   };
 
-  const handleCancelDeletion = () => {
+  // Step 3: abort a pending request during the grace period.
+  const handleCancelDeletion = async () => {
+    const token = accessTokenRef.current;
+    if (!token) {
+      throw new Error('Your secure session has ended. Start over and verify your email again to cancel.');
+    }
+
+    try {
+      await cancelDeletion(token);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        await endSession();
+        throw new Error('Your secure session expired. Start over and verify your email again to cancel.');
+      }
+      throw new Error(err instanceof Error ? err.message : 'Could not cancel the request.');
+    }
+
+    await endSession();
     setCurrentStep(1);
     setAcknowledged(false);
-    setRestoredToast(`SafeSync coverage successfully restored for ${email}. Deletion request cancelled.`);
+    setRestoredToast(`SafeSync coverage successfully restored for ${normalizedEmail}. Deletion request cancelled.`);
     setTimeout(() => {
       setRestoredToast(null);
     }, 6000);
@@ -57,10 +229,12 @@ export default function App() {
   };
 
   const handleStartNew = () => {
+    void endSession();
     setCurrentStep(1);
     setReason('');
     setNotes('');
     setAcknowledged(false);
+    setSendError(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -78,6 +252,18 @@ export default function App() {
           <div className="max-w-4xl mx-auto flex items-center justify-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-200" />
             <span>{restoredToast}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Missing configuration warning (developer-facing) */}
+      {configMissing && (
+        <div className="bg-amber-100 text-amber-900 text-xs py-2.5 px-4 text-center font-medium border-b border-amber-300">
+          <div className="max-w-4xl mx-auto flex items-center justify-center gap-2">
+            <AlertTriangle className="w-4 h-4" />
+            <span>
+              Set VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY and VITE_API_BASE_URL to enable account deletion.
+            </span>
           </div>
         </div>
       )}
@@ -168,13 +354,18 @@ export default function App() {
           {currentStep === 1 && (
             <StepIdentityInput
               email={email}
-              setEmail={setEmail}
+              setEmail={(v) => {
+                setEmail(v);
+                setSendError(null);
+              }}
               reason={reason}
               setReason={setReason}
               notes={notes}
               setNotes={setNotes}
               acknowledged={acknowledged}
               setAcknowledged={setAcknowledged}
+              isSending={isSending}
+              sendError={sendError}
               onProceed={handleProceedToVerification}
               onOpenExport={() => setIsExportOpen(true)}
             />
@@ -182,16 +373,19 @@ export default function App() {
 
           {currentStep === 2 && (
             <StepEmailVerification
-              email={email}
+              email={normalizedEmail}
               onBack={handleBackToInput}
+              onResend={handleResendCode}
               onConfirmDeletion={handleConfirmDeletion}
             />
           )}
 
           {currentStep === 3 && (
             <StepDeletionConfirmed
-              email={email}
-              ticketId={ticketId}
+              email={normalizedEmail}
+              requestedAt={deletion.requestedAt}
+              scheduledFor={deletion.scheduledFor}
+              alreadyPending={deletion.alreadyPending}
               reason={reason}
               onCancelDeletion={handleCancelDeletion}
               onStartNew={handleStartNew}

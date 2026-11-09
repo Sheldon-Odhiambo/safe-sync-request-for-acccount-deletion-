@@ -1,72 +1,73 @@
 import React, { useState } from 'react';
 import { CheckCircle2, Shield, Clock, Download, RotateCcw, FileText, AlertCircle } from 'lucide-react';
-import { SafeSyncLogo } from './SafeSyncLogo';
 
 interface StepDeletionConfirmedProps {
   email: string;
-  ticketId: string;
+  /** When the backend recorded the request (ISO string). */
+  requestedAt: string | null;
+  /** When the grace period ends and erasure becomes due (ISO string). */
+  scheduledFor: string | null;
+  /** True if a request already existed when the user verified. */
+  alreadyPending: boolean;
   reason: string;
-  onCancelDeletion: () => void;
+  /** Cancels the pending request. Throws an Error with a user-facing message on failure. */
+  onCancelDeletion: () => Promise<void>;
   onStartNew: () => void;
 }
 
+const formatDate = (iso: string | null, withTime = false): string => {
+  if (!iso) return 'the end of the grace period';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return 'the end of the grace period';
+  return d.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    ...(withTime ? { hour: '2-digit', minute: '2-digit' } : {}),
+  });
+};
+
 export const StepDeletionConfirmed: React.FC<StepDeletionConfirmedProps> = ({
   email,
-  ticketId,
+  requestedAt,
+  scheduledFor,
+  alreadyPending,
   reason,
   onCancelDeletion,
   onStartNew,
 }) => {
   const [downloaded, setDownloaded] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
-  const requestDate = new Date().toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-
-  const purgeDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
-
-  const graceEndDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  const requestDate = formatDate(requestedAt, true);
+  const eraseDate = formatDate(scheduledFor);
 
   const handleDownloadReceipt = () => {
-    const content = `SAFESYNC OFFICIAL ACCOUNT DELETION RECEIPT
+    const content = `SAFESYNC ACCOUNT DELETION RECEIPT
 =====================================================
-Reference Ticket: ${ticketId}
 Registered Email: ${email}
-Submission Date: ${requestDate}
+Request Recorded: ${requestDate}
 Reason Stated: ${reason || 'User requested account closure'}
-Status: SCHEDULED FOR CRYPTOGRAPHIC PURGE
+Status: DELETION SCHEDULED
 
 TIMELINE & RECOVERY
 -----------------------------------------------------
-1. Immediate (T+0): Emergency Dispatch & Beacon Sync severed.
-2. Grace Period: Valid until ${graceEndDate} (14 days).
-   You may cancel this request anytime before this date.
-3. Permanent Purge: ${purgeDate}.
-   All telemetry, medical profiles, and crash recordings permanently wiped.
+1. Request recorded against your verified account.
+2. Grace Period: until ${eraseDate} (14 days).
+   You may cancel this request any time before then.
+3. Erasure: runs after ${eraseDate} unless the request is cancelled.
+   Your account data is then removed.
 
 SafeSync Emergency Response Systems
 "Every Second Matters. Every Life Counts."
-Security Dispatch: +25720 889 352 | privacy@safesync.internal
 =====================================================`;
 
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `SafeSync_Deletion_Receipt_${ticketId}.txt`;
+    a.download = 'SafeSync_Deletion_Receipt.txt';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -74,12 +75,15 @@ Security Dispatch: +25720 889 352 | privacy@safesync.internal
     setDownloaded(true);
   };
 
-  const handleTriggerCancel = () => {
+  const handleTriggerCancel = async () => {
+    setCancelError(null);
     setIsCancelling(true);
-    setTimeout(() => {
+    try {
+      await onCancelDeletion();
+    } catch (err) {
+      setCancelError(err instanceof Error ? err.message : 'Could not cancel the request.');
       setIsCancelling(false);
-      onCancelDeletion();
-    }, 800);
+    }
   };
 
   return (
@@ -90,13 +94,16 @@ Security Dispatch: +25720 889 352 | privacy@safesync.internal
           <CheckCircle2 className="w-10 h-10 text-emerald-600" />
         </div>
         <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-800 rounded-full text-xs font-semibold uppercase tracking-wider mb-2 border border-emerald-200">
-          <span>Deletion Request Acknowledged</span>
+          <span>{alreadyPending ? 'Deletion Already Scheduled' : 'Deletion Request Acknowledged'}</span>
         </div>
         <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
           SafeSync Account Scheduled for Erasure
         </h2>
         <p className="text-slate-600 text-sm max-w-lg mx-auto mt-1.5 leading-relaxed">
-          Your identity verification has passed. We have detached your emergency profile for <span className="font-semibold text-slate-900">{email}</span> and queued permanent deletion.
+          {alreadyPending
+            ? <>A deletion request for <span className="font-semibold text-slate-900">{email}</span> was already on file. </>
+            : <>Your identity verification has passed and deletion of <span className="font-semibold text-slate-900">{email}</span> has been scheduled. </>}
+          Your account will be erased after <span className="font-semibold text-slate-900">{eraseDate}</span> unless you cancel.
         </p>
       </div>
 
@@ -105,10 +112,10 @@ Security Dispatch: +25720 889 352 | privacy@safesync.internal
         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3">
           <div>
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
-              Reference Ticket ID
+              Request Recorded
             </span>
             <span className="font-mono text-lg font-bold text-[#002B66] tracking-wide">
-              {ticketId}
+              {requestDate}
             </span>
           </div>
           <button
@@ -124,17 +131,17 @@ Security Dispatch: +25720 889 352 | privacy@safesync.internal
         {/* Schedule Stages */}
         <div className="space-y-3">
           <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-            Mandatory Deletion Schedule & Milestones
+            Deletion Schedule & Milestones
           </h4>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="bg-slate-50 border border-slate-200 rounded-lg p-3.5">
               <div className="flex items-center gap-2 text-slate-900 font-semibold text-xs mb-1">
                 <Clock className="w-3.5 h-3.5 text-amber-600" />
-                <span>Phase 1: Immediate</span>
+                <span>Phase 1: Request Recorded</span>
               </div>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Emergency dispatch severed. Wearables and vehicle beacon sync disconnected.
+                Your request is saved against your verified account. Nothing has been erased yet.
               </p>
             </div>
 
@@ -144,17 +151,17 @@ Security Dispatch: +25720 889 352 | privacy@safesync.internal
                 <span>Phase 2: 14-Day Grace</span>
               </div>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Until {graceEndDate}. You can restore your account if this request was accidental.
+                Until {eraseDate}. You can cancel if this request was accidental.
               </p>
             </div>
 
             <div className="bg-red-50/60 border border-red-200 rounded-lg p-3.5">
               <div className="flex items-center gap-2 text-[#DE1123] font-semibold text-xs mb-1">
                 <FileText className="w-3.5 h-3.5 text-[#DE1123]" />
-                <span>Phase 3: Cryptographic Purge</span>
+                <span>Phase 3: Erasure</span>
               </div>
               <p className="text-xs text-slate-600 leading-relaxed">
-                By {purgeDate}. Irreversible erasure of biometric telemetry, incident logs & contact links.
+                After {eraseDate}. Irreversible removal of your account data.
               </p>
             </div>
           </div>
@@ -166,16 +173,21 @@ Security Dispatch: +25720 889 352 | privacy@safesync.internal
             <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
             <div className="text-xs text-slate-700">
               <span className="font-bold text-slate-900 block">Changed your mind or submitted by mistake?</span>
-              During the 14-day grace period, you can abort this request and instantly restore full life-safety coverage.
+              During the 14-day grace period, you can abort this request and keep your account.
+              {cancelError && (
+                <span role="alert" className="block text-red-600 font-medium mt-1">
+                  {cancelError}
+                </span>
+              )}
             </div>
           </div>
           <button
             type="button"
             onClick={handleTriggerCancel}
             disabled={isCancelling}
-            className="px-4 py-2 text-xs font-bold text-amber-900 bg-white hover:bg-amber-100 border border-amber-300 rounded-lg transition-colors flex items-center gap-1.5 shrink-0 self-start sm:self-auto cursor-pointer shadow-2xs"
+            className="px-4 py-2 text-xs font-bold text-amber-900 bg-white hover:bg-amber-100 border border-amber-300 rounded-lg transition-colors flex items-center gap-1.5 shrink-0 self-start sm:self-auto cursor-pointer shadow-2xs disabled:opacity-60"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
+            <RotateCcw className={`w-3.5 h-3.5 ${isCancelling ? 'animate-spin' : ''}`} />
             <span>{isCancelling ? 'Restoring Account...' : 'Cancel Deletion & Restore SafeSync'}</span>
           </button>
         </div>
@@ -187,7 +199,7 @@ Security Dispatch: +25720 889 352 | privacy@safesync.internal
             onClick={onStartNew}
             className="text-xs font-semibold text-[#002B66] hover:underline"
           >
-            Submit Another Request or Test Again
+            Finish & Sign Out
           </button>
         </div>
       </div>
