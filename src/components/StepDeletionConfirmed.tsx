@@ -160,7 +160,6 @@ Security Dispatch: +25720 889 352 | privacy@safesync.internal
           </div>
         </div>
 
-        {/* Cancel Deletion / Recovery Option */}
         <div className="bg-amber-50/70 border border-amber-200 rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-start gap-2.5">
             <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
